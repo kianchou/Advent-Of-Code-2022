@@ -4,6 +4,8 @@ First year I actually stuck through and finished got all 50 stars.
 
 All solutions written in Java.
 
+For most days, my input saved as "input.txt" and the sample input as "inputs.txt"
+
 Most of the stuff from the initial upload is exactly what I used to submit, working on polishing some of the code when I have time.
 
 General known issues:

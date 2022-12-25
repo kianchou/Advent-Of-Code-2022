@@ -8,6 +8,8 @@ For most days, my input saved as "input.txt" and the sample input as "inputs.txt
 
 Most of the stuff from the initial upload is exactly what I used to submit, working on polishing some of the code when I have time.
 
+Also, a lot of the part1 & part2s reuse the same code because I would copy/paste part 1 to part 2, and then just modified as needed.
+
 General known issues:
 - Day 15: part 2 currently just finds the gap, in the x and the y, should return the exact point
 - Day 19: part 2 currently just uses random. Working to write a real solution.

@@ -10,15 +10,20 @@ public class Day19 {
         String input = Files.readString(Paths.get("input.txt"));
         String[] arr = arrParseS(input);
 
-        System.out.println(part1(arr));
+        List<int[]> blueprints = getBlueprints(arr);
 
-        // System.out.println(part2(arr));
+        // part 1 works good now (kinda)
+        // originally used iterative dfs
+        System.out.println(part1(blueprints, 24));
+
+        // for some reason blueprint 1 keeps giving 37, while the random algo gives 38 (real)
+        // rewrote the dfs recursively and now it works correctly in ~5 seconds???
+        System.out.println(part2(blueprints, 32));
     }
 
     record Pos(int ore, int clay, int obs, int geo,
                int oreR, int clayR, int obsR, int geoR,
-               boolean prevOre, boolean prevClay, boolean prevObs,
-               int min) {};
+               boolean prevOre, boolean prevClay, boolean prevObs) {};
 
     // thanks ChatGPT
     public static int[] extractInts(String input) {
@@ -39,142 +44,109 @@ public class Day19 {
         return ints;
     }
 
-    public static int dfs(int rounds, int[] blueprint) {
-        // blueprint: [index, ore, ore, ore, clay, ore, obsidian]
-        // storing as array of robots, and array of materials
-        // int[0] = # robots of {ore, clay, obsidian, geode}
-        // int[1] = # materials of {ore, clay, obsidian, geode}
-        // int[2] = minute
-        Deque<Pos> stack = new ArrayDeque<Pos>();
-        stack.push(new Pos(0,0,0,0,1,0,0,0,false,false,false,0));
-        // at minute (i - 1), record the max amount of geodes made
-        int[] minMax = new int[rounds];
-        int max = 0;
-        // calculate the max number of ore robots we should ever need at once
-        int maxOre = max4(blueprint[1], blueprint[2], blueprint[3], blueprint[5]);
-        while (!stack.isEmpty()) {
-            Pos curr = stack.pop();
-            int minute = curr.min + 1;
-            // System.out.printf("minute: %d, size: %d\n", minute, reps);
-            // find the new values for materials
-            int newOre = curr.ore + curr.oreR;
-            int newClay = curr.clay + curr.clayR;
-            int newObs = curr.obs + curr.obsR;
-            int newGeo = curr.geo + curr.geoR;
+    public static List<int[]> getBlueprints(String[] arr) {
+        List<int[]> list = new ArrayList<>();
+        for (String str: arr) 
+            list.add(extractInts(str));
+        return list;
+    }
 
-            // at final minute, we dont keep making more robots so we finish
-            if (minute == rounds) {
-                if (newGeo > max)
-                    max = newGeo;
-                continue;
-            }
-
-            if (newGeo < minMax[curr.min]) continue;
-            if (newGeo > minMax[curr.min]) minMax[curr.min] = newGeo;
-
-            // technically "start of minute", see which robots you can build from old materials
-            boolean makeOre = false, makeClay = false, makeObs = false;
-            // check if geode robot can be made
-            if (curr.obs >= blueprint[6] && curr.ore >= blueprint[5]) {
-                stack.push(new Pos(newOre - blueprint[5], newClay, newObs - blueprint[6], newGeo,
-                    curr.oreR, curr.clayR, curr.obsR, curr.geoR + 1, false, false, false, minute));
-                // continue;
-            }
-            // check if obsidian robot can be made
-            if (curr.obsR < blueprint[6] && curr.clay >= blueprint[4] && curr.ore >= blueprint[3]) {
-                if (!curr.prevObs) {
-                stack.push(new Pos(newOre - blueprint[3], newClay - blueprint[4], newObs, newGeo,
-                    curr.oreR, curr.clayR, curr.obsR + 1, curr.geoR, false, false, false, minute));
-                makeObs = true;
-                }
-            }
-            // check if clay robot can be made (and if it even should be made)
-            if (curr.clayR < blueprint[4] && curr.ore >= blueprint[2]) {
-                // if (!curr.prevClay) {
-                stack.push(new Pos(newOre - blueprint[2], newClay, newObs, newGeo,
-                    curr.oreR, curr.clayR + 1, curr.obsR, curr.geoR, false, false, makeObs, minute));
-                makeClay = true;
-                // }
-            }
-            // check if ore robot can be made (and if it even should be made)
-            if (curr.oreR < maxOre && curr.ore >= blueprint[1]) {
-                if (!curr.prevOre) { 
-                stack.push(new Pos(newOre - blueprint[1], newClay, newObs, newGeo,
-                    curr.oreR + 1, curr.clayR, curr.obsR, curr.geoR, false, makeClay, makeObs, minute));
-                makeOre = true;
-                }
-            }
-            stack.push(new Pos(newOre, newClay, newObs, newGeo,
-                curr.oreR, curr.clayR, curr.obsR, curr.geoR, makeOre, makeClay, makeObs, minute));
+    // types: 0: ore, 1: clay, 2: obsidian, 3: geode
+    public static boolean canMake(int robotType, Pos curr, int[] blueprint) {
+        switch (robotType) {
+            case 0: 
+                return (curr.ore >= blueprint[1]);
+            case 1: 
+                return (curr.ore >= blueprint[2]);
+            case 2: 
+                return (curr.ore >= blueprint[3] && curr.clay >= blueprint[4]);
+            case 3: 
+                return (curr.ore >= blueprint[5] && curr.obs >= blueprint[6]);
         }
-        // System.out.println(" " + max);
-        // System.out.println(best);
+        return false;
+    }
+
+    public static int dfs(int min, int limit, Pos curr, int[] blueprint) {
+        min++;
+        // first update material values
+        int newOre = curr.ore + curr.oreR;
+        int newClay = curr.clay + curr.clayR;
+        int newObs = curr.obs + curr.obsR;
+        int newGeo = curr.geo + curr.geoR;
+
+        int max = newGeo;
+
+        if (min == limit) 
+            return max;
+
+        // if (newGeo + bestRate(curr.geoR, limit - min) < part1Max) return 0;
+
+        // now update number of robots
+
+        Pos make_geo = null, make_obs = null, make_clay = null, make_ore = null;
+
+        // geode robot
+        if (canMake(3, curr, blueprint)) {
+            make_geo = new Pos(newOre - blueprint[5], newClay, newObs - blueprint[6], newGeo, curr.oreR, curr.clayR, 
+                curr.obsR, curr.geoR + 1, false, false, false);
+            max = Math.max(max, dfs(min, limit, make_geo, blueprint));
+            
+            Pos make_none = new Pos(newOre, newClay, newObs, newGeo, curr.oreR, curr.clayR, 
+                curr.obsR, curr.geoR, false, false, false);
+            return Math.max(max, dfs(min, limit, make_none, blueprint));
+        }
+
+        // obsidian robot
+        if (curr.obsR < blueprint[6] && canMake(2, curr, blueprint)) {
+            if (curr.prevObs) return max;
+            make_obs = new Pos(newOre - blueprint[3], newClay - blueprint[4], newObs, newGeo, curr.oreR, curr.clayR, 
+                curr.obsR + 1, curr.geoR, false, false, false);
+            max = Math.max(max, dfs(min, limit, make_obs, blueprint));
+        }
+
+        // clay robot
+        if (curr.clayR < blueprint[4] && canMake(1, curr, blueprint)) {
+            // if (curr.prevClay) return max;
+            make_clay = new Pos(newOre - blueprint[2], newClay, newObs, newGeo, curr.oreR, curr.clayR + 1, 
+                curr.obsR, curr.geoR, false, false, false);
+            max = Math.max(max, dfs(min, limit, make_clay, blueprint));
+        }
+
+        if (curr.oreR < 4 && canMake(0, curr, blueprint)) {
+            if (curr.prevOre) return max;
+            make_ore = new Pos(newOre - blueprint[1], newClay, newObs, newGeo, curr.oreR + 1, curr.clayR,
+                curr.obsR, curr.geoR, false, false, false);
+            max = Math.max(max, dfs(min, limit, make_ore, blueprint));
+        }
+
+        Pos make_none = new Pos(newOre, newClay, newObs, newGeo, curr.oreR, curr.clayR, 
+            curr.obsR, curr.geoR, make_ore != null, make_clay != null, make_obs != null);
+        max = Math.max(max, dfs(min, limit, make_none, blueprint));
+
+        // if (max > part1Max) part1Max = max;
         return max;
     }
 
-    public static int part1(String[] arr) {
-        ArrayList<int[]> list = new ArrayList<>();
-        for (String str: arr) list.add(extractInts(str));
-        int res = 0;
-        
-        for (int[] blueprint: list) {
-            int max = dfs(24, blueprint);
-            System.out.print(max + " ");
-            res += (blueprint[0] * max);
+    public static int part1(List<int[]> blueprints, int time) {
+        int sum = 0;
+        for (int[] blueprint: blueprints) {
+            Pos p = new Pos(0, 0, 0, 0, 1, 0, 0, 0, false, false, false);
+            int max = dfs(0, time, p, blueprint);
+            // int max = dfsP(24, blueprint);
+            // System.out.print(max + " ");
+            sum += (blueprint[0] * max);
         }
-
-        return res;
+        return sum;
     }
 
-    public static int part2(String[] arr) {
-        ArrayList<int[]> list = new ArrayList<>();
-        for (String str: arr) list.add(extractInts(str));
+    public static int part2(List<int[]> blueprints, int time) {
         int res = 1;
-        for (int b = 0; b < 3; b++) {
-            int[] blue = list.get(b);
-            int max = 0;
-            for (int r = 0; r < 5_000_000; r++) {
-                int[] mats = new int[]{0,0,0,0};
-                int[] robs = new int[]{1,0,0,0};
-                boolean[] build = new boolean[4];
-                for (int i = 0; i < 32; i++) {
-                    double rnd = Math.random();
-                    if (mats[0] >= blue[5] && mats[2] >= blue[6]) {
-                        mats[0] -= blue[5];
-                        mats[2] -= blue[6];
-                        build[3] = true;
-                    } else if (rnd <= 0.3 && mats[0] >= blue[1]) {
-                        mats[0] -= blue[1];
-                        build[0] = true;
-                    } else if (rnd <= 0.7 && mats[0] >= blue[3] && mats[1] >= blue[4]) {
-                        mats[0] -= blue[3];
-                        mats[1] -= blue[4];
-                        build[2] = true;
-                    } else if (rnd <= 0.9 && mats[0] >= blue[2]) {
-                        mats[0] -= blue[2];
-                        build[1] = true;
-                    }
-                    // update mats
-                    for (int j = 0; j < 4; j++) {
-                        mats[j] += robs[j];
-                    }
-                    // update robos
-                    for (int j = 0; j < 4; j++) {
-                        if (build[j]) {
-                            build[j] = false;
-                            robs[j]++;
-                            break;
-                        }
-                    }
-                }
-                if (mats[3] > max) {
-                    // System.out.println(max);
-                    // System.out.println(Arrays.toString(robs));
-                    // System.out.println(Arrays.toString(mats));
-                    max = mats[3];
-                }
-            }
-            System.out.println(max);
+        for (int i = 0; i < 3; i++) {
+            int[] blueprint = blueprints.get(i);
+            Pos p = new Pos(0, 0, 0, 0, 1, 0, 0, 0, false, false, false);
+            // int max = dfsP(time, blueprint);
+            int max = dfs(0, time, p, blueprint);
+            // System.out.println(max);
             res *= max;
         }
         

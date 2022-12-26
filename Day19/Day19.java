@@ -18,8 +18,12 @@ public class Day19 {
 
         // for some reason blueprint 1 keeps giving 37, while the random algo gives 38 (real)
         // rewrote the dfs recursively and now it works correctly in ~5 seconds???
+        // found out the optimal solution is not greedy, for blueprint 1 the optimal path is to make the 
+        // first geode robot during minute 22 rather than during minute 21. optimized down to ~2 seconds
         System.out.println(part2(blueprints, 32));
     }
+
+    public static int[] maxVals;
 
     record Pos(int ore, int clay, int obs, int geo,
                int oreR, int clayR, int obsR, int geoR,
@@ -79,10 +83,11 @@ public class Day19 {
         if (min == limit) 
             return max;
 
-        // if (newGeo + bestRate(curr.geoR, limit - min) < part1Max) return 0;
+        // + 1 since it is possible to be better off making the geode robot next step
+        if (curr.geoR + 1 < maxVals[min - 1]) return max;
+        if (curr.geoR > maxVals[min - 1]) maxVals[min - 1] = curr.geoR;
 
         // now update number of robots
-
         Pos make_geo = null, make_obs = null, make_clay = null, make_ore = null;
 
         // geode robot
@@ -130,6 +135,7 @@ public class Day19 {
     public static int part1(List<int[]> blueprints, int time) {
         int sum = 0;
         for (int[] blueprint: blueprints) {
+            maxVals = new int[time];
             Pos p = new Pos(0, 0, 0, 0, 1, 0, 0, 0, false, false, false);
             int max = dfs(0, time, p, blueprint);
             // int max = dfsP(24, blueprint);
@@ -143,6 +149,7 @@ public class Day19 {
         int res = 1;
         for (int i = 0; i < 3; i++) {
             int[] blueprint = blueprints.get(i);
+            maxVals = new int[time];
             Pos p = new Pos(0, 0, 0, 0, 1, 0, 0, 0, false, false, false);
             // int max = dfsP(time, blueprint);
             int max = dfs(0, time, p, blueprint);
